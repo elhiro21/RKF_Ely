@@ -1,0 +1,58 @@
+WITH trans_kc AS(
+  SELECT ft.transaction_id AS trx_id
+    ,ft.date AS date_trx
+    ,ft.branch_id branch_id
+    ,ft.product_id product_id
+    ,ft.customer_name customer_name
+    ,ft.price price
+    ,ft.discount_percentage discount_percentage
+    ,ft.rating rating_trx
+    ,ROUND(ft.price-(ft.price*ft.discount_percentage)) nett_sales
+    ,kc.branch_name branch_name
+    ,kc.kota city
+    ,kc.provinsi province
+    ,kc.rating rating_kc
+  FROM `rakamin-kf-analytics-416205.kimia_farma.kf_final_transaction` ft
+  JOIN `rakamin-kf-analytics-416205.kimia_farma.kf_kantor_cabang` kc
+  ON ft.branch_id = kc.branch_id
+),
+invent_product AS(
+  SELECT inv.Inventory_ID invent_id
+    ,inv.branch_id branch_id
+    ,inv.product_id product_id
+    ,p.price price
+    ,p.product_name product_name
+    ,CASE
+      WHEN price <=50001 THEN p.price*0.10
+      WHEN price BETWEEN 50001 AND 100000 THEN p.price*0.15
+      WHEN price BETWEEN 100001 AND 300000 THEN p.price*0.2
+      WHEN price BETWEEN 300001 AND 500000 THEN p.price*0.25
+      WHEN price >500000 THEN p.price*0.3
+      END persentase_gross_laba
+  FROM `rakamin-kf-analytics-416205.kimia_farma.kf_inventory` inv
+  JOIN `rakamin-kf-analytics-416205.kimia_farma.kf_product` p
+  ON inv.product_id=p.product_id
+  AND inv.product_name=p.product_name
+  limit 10
+)
+SELECT DISTINCT trans_kc.trx_id
+  ,trans_kc.date_trx
+  ,trans_kc.branch_id
+  ,trans_kc.branch_name
+  ,trans_kc.city
+  ,trans_kc.province
+  ,trans_kc.rating_kc
+  ,trans_kc.customer_name
+  ,trans_kc.product_id
+  ,invent_product.product_id
+  ,invent_product.product_name
+  ,invent_product.price
+  ,trans_kc.discount_percentage
+  ,invent_product.persentase_gross_laba
+  ,trans_kc.nett_sales
+  ,ROUND(invent_product.persentase_gross_laba-(trans_kc.price-trans_kc.nett_sales)) nett_profit
+  ,trans_kc.rating_trx
+FROM trans_kc
+JOIN invent_product
+ON trans_kc.product_id = invent_product.product_id
+ORDER BY 2
